@@ -1,0 +1,75 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<title>WebcamJS Test Page</title>
+	<style type="text/css">
+		body { font-family: Helvetica, sans-serif; }
+		h2, h3 { margin-top:0; }
+		form { margin-top: 15px; }
+		form > input { margin-right: 15px; }
+		#results { float:right; margin:20px; padding:20px; border:1px solid; background:#ccc; }
+	</style>
+</head>
+<body>
+    <h1>WebcamJS Test Page - HD Capture</h1>
+    <h3>Demonstrates 720p HD capture (1280x720), if your camera supports it!</h3>
+    
+    <div id="my_camera"></div>
+	
+	<!-- First, include the Webcam.js JavaScript Library -->
+	<script type="text/javascript" src="static/js/webcam.min.js"></script>
+	
+	<!-- Configure a few settings and attach camera -->
+	<script language="JavaScript">
+		Webcam.set({
+			width: 1280,
+			height: 720,
+			image_format: 'jpeg',
+            jpeg_quality: 90,
+            flip_horiz: true,
+			constraints: {
+				width: { exact: 1280 },
+				height: { exact: 720 }
+			}
+        });
+		Webcam.attach( '#my_camera' );
+	</script>
+	
+	<!-- A button for taking snaps -->
+	<form>
+		<input type=button value="Start nod and shake detection" onClick="start_detection()">
+	</form>
+	
+    <!-- Code to handle taking the snapshot and displaying it locally -->
+    <script type=text/javascript src="static/js/jquery.js"></script>
+    <script type=text/javascript>
+        $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+    </script>
+    <script language="JavaScript">
+
+        function start_detection() {
+            myVar = setInterval(take_snapshot, 200);
+        }
+
+		function take_snapshot() {
+			// take snapshot and get image data
+			Webcam.snap( function(data_uri) {
+                $.getJSON($SCRIPT_ROOT + '/_photo_cap', {
+                        photo_cap: data_uri,
+                    },
+                    function(data){
+                    	// display results in page
+                        document.getElementById('results').innerHTML = 
+                            '<h2>Here is the detection:</h2>' + 
+                            '<img src="'+data.photo_base64+'"/>';
+                    });                  
+            });
+		}
+	</script>
+    
+    <div id="results">Your captured image will appear here...</div>
+
+</body>
+</html>
