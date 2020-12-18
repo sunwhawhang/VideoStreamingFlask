@@ -20,7 +20,7 @@ photo_base64 = ''
 
 @app.route('/')
 def photo():
-    resp = make_response(render_template('flip_v3.html'))
+    resp = make_response(render_template('flip_v4.html'))
     resp.set_cookie('sessionID', '', expires=0)
     return resp
 
@@ -52,5 +52,5 @@ def detect():
     photo_base64 = ''
     return jsonify(photo_base64=new_photo_base64)
 
-# if __name__ == '__main__':
-#     app.run(host='127.0.0.1', debug=False)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', debug=True)

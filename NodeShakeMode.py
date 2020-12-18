@@ -120,9 +120,9 @@ class NodShakeHMM(object):
     Use HMM models for nod/shake detection
     """
 
-    alpha_ud = 1.2  # up/down threshold
+    alpha_ud = 1  # up/down threshold
     alpha_lr = 4  # left/right threshold
-    beta = 2  # stationary threshold
+    beta = 1  # stationary threshold
 
     # alpha_ud_relative = 0.002  # up/down threshold
     # alpha_lr_relative = 0.002  # left/right threshold
@@ -140,6 +140,8 @@ class NodShakeHMM(object):
     beta_pitch = 1.5
     beta_yaw = 5
     beta_av_roll = 12
+    beta_av_yaw = 15
+    beta_std_yaw = 3
 
     def __init__(self, maxlen=15):
         """
@@ -164,8 +166,6 @@ class NodShakeHMM(object):
     def _determine_new_observable(self, new_data):
         x_differences = []
         y_differences = []
-        # x_differences_relative = []
-        # y_differences_relative = []
         x1_differences = []
         y1_differences = []
         x2_differences = []
@@ -174,15 +174,16 @@ class NodShakeHMM(object):
         pitch_differences = []
         roll_differences = []
         xy_ratio_differences = []
+        # av_dx = new_data.dx
+        # av_dy = new_data.dy
 
         av_roll = new_data.roll
-
+        yaw_list = [new_data.yaw]
         for d in self.data_list:
             av_roll += d.roll
+            yaw_list.append(d.yaw)
             x_differences.append(abs(new_data.x_middle - d.x_middle))
             y_differences.append(abs(new_data.y_middle - d.y_middle))
-            # x_differences_relative.append(abs(new_data.x_middle_relative - d.x_middle_relative))
-            # y_differences_relative.append(abs(new_data.y_middle_relative - d.y_middle_relative))
             x1_differences.append(abs(new_data.x1 - d.x1))
             y1_differences.append(abs(new_data.y1 - d.y1))
             x2_differences.append(abs(new_data.x2 - d.x2))
@@ -191,15 +192,17 @@ class NodShakeHMM(object):
             pitch_differences.append(abs(new_data.pitch - d.pitch))
             roll_differences.append(abs(new_data.roll - d.roll))
             xy_ratio_differences.append(abs(new_data.xy_ratio - d.xy_ratio))
+            # av_dx += d.dx
+            # av_dy += d.dy
 
         av_roll = av_roll / (len(self.data_list) + 1)
+        # av_dx = av_dx / (len(self.data_list) + 1)
+        # av_dy = av_dy / (len(self.data_list) + 1)
 
         self.tilted = True if abs(av_roll) > self.beta_av_roll else False
 
         x_diff = np.mean(x_differences)
         y_diff = np.mean(y_differences)
-        # x_diff_relative = np.mean(x_differences_relative)
-        # y_diff_relative = np.mean(y_differences_relative)
         x1_diff = np.mean(x1_differences)
         y1_diff = np.mean(y1_differences)
         x2_diff = np.mean(x2_differences)
@@ -215,45 +218,51 @@ class NodShakeHMM(object):
         # print("roll diff: ", roll_diff)
         # print("X1 and X2 diff: ", x1_diff, x2_diff)
         # print("Average roll: ", av_roll)
-        if x1_diff > self.beta_x and x2_diff > self.beta_x:
-            # print('x1 or x2 too big: ', x1_diff, x2_diff)
+        if av_roll > self.beta_av_roll * 1.5 and (x1_diff > self.beta_x  and x2_diff > self.beta_x) and (abs(np.mean(yaw_list)) < self.beta_av_yaw or np.std(yaw_list) > self.beta_std_yaw * 2.5):
+            print('x1 or x2 too big: ', av_roll, x1_diff, x2_diff, np.mean(yaw_list), np.std(yaw_list))
             observable = 'stationary'
-        elif y1_diff > self.beta_y and y2_diff > self.beta_y:
-            # print('y1 or y2 too big: ', y1_diff, y2_diff)
+        elif (y1_diff > self.beta_y and y2_diff > self.beta_y):
+            print('y1 or y2 too big: ', y1_diff, y2_diff)
+            observable = 'stationary'
+        elif (x1_diff > self.beta_x / 7 and not x2_diff > self.beta_x / 7) or (not x1_diff > self.beta_x / 7 and x2_diff > self.beta_x / 7):
+            print('x1 or x2 too big?: ', x1_diff, x2_diff)
+            observable = 'stationary'
+        elif (y1_diff > self.beta_y / 7 and not y2_diff > self.beta_y / 7) or (not y1_diff > self.beta_y / 7 and y2_diff > self.beta_y / 7):
+            print('y1 or y2 too big?: ', y1_diff, y2_diff)
             observable = 'stationary'
         elif y_diff < self.beta and x_diff < self.beta:
-            # print('y_diff or x_diff too small', y_diff, x_diff)
+            print('y_diff or x_diff too small', y_diff, x_diff)
             observable = 'stationary'
         elif yaw_diff < self.beta_angle and pitch_diff < self.beta_angle:
-            # print('yaw or pitch too small', yaw_diff, pitch_diff)
+            print('yaw or pitch too small', yaw_diff, pitch_diff)
             observable = 'stationary'
-        elif xy_ratio_diff > self.beta_xy:
-            # print('xy ratio too big', xy_ratio_diff)
+        elif xy_ratio_diff > self.beta_xy and np.std(yaw_list) < self.beta_std_yaw:
+            print('xy ratio too big', xy_ratio_diff, np.std(yaw_list))
             observable = 'stationary'
         elif (y_diff > x_diff + self.alpha_ud or abs(av_roll) > self.beta_av_roll) and (pitch_diff > yaw_diff + self.alpha_ud_angle or (pitch_diff > self.beta_pitch and yaw_diff < self.beta_yaw)):
             if abs(av_roll) > self.beta_av_roll:
-                if pitch_diff > yaw_diff + self.alpha_ud_angle * 3:
-                    # print("PITCH IS BIG ENOUGH", pitch_diff, yaw_diff)
+                if pitch_diff > yaw_diff + self.alpha_ud_angle * 1.5:
+                    print("PITCH IS BIG ENOUGH", pitch_diff, yaw_diff)
                     observable = 'up' if new_data.y_middle > self.data_list[-1].y_middle else 'down'
                 else:
-                    # print('pitch not big enough for tilt')
+                    print('pitch not big enough for tilt')
                     observable = 'stationary'
             else:
                 observable = 'up' if new_data.y_middle > self.data_list[-1].y_middle else 'down'
-        elif (x_diff > y_diff + self.alpha_lr or abs(av_roll) > self.beta_av_roll) and yaw_diff > pitch_diff + self.alpha_lr_angle and roll_diff < self.beta_roll:
+        elif np.std(yaw_list) > self.beta_std_yaw or (x_diff > y_diff + self.alpha_lr or abs(av_roll) > self.beta_av_roll) and yaw_diff > pitch_diff + self.alpha_lr_angle and roll_diff < self.beta_roll:
             if abs(av_roll) > self.beta_av_roll:
                 if yaw_diff > pitch_diff + self.alpha_lr_angle * 4:
-                    # print("YAW IS BIG ENOUGH", yaw_diff, pitch_diff)
+                    print("YAW IS BIG ENOUGH", yaw_diff, pitch_diff)
                     observable = 'left' if new_data.x_middle > self.data_list[-1].x_middle else 'right'
                 else:
-                    # print('yaw not big enough for tilt')
+                    print('yaw not big enough for tilt')
                     observable = 'stationary'
             else:
                 observable = 'left' if new_data.x_middle > self.data_list[-1].x_middle else 'right'
         else:
-            # print('HMMMMMM just else: ', x_diff, y_diff, pitch_diff, yaw_diff)
+            print('HMMMMMM just else: ', x_diff, y_diff, pitch_diff, yaw_diff)
             observable = 'stationary'
-        # print("----------- ", observable)
+        print("----------- ", observable)
 
         # if y_diff_relative < self.beta_relative and x_diff_relative < self.beta_relative:
         #     observable_relative = 'stationary'

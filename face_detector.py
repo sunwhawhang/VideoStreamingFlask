@@ -16,6 +16,9 @@ face_middle_color = (0, 138, 0)
 face_eps = 10
 middle_point = []
 
+dx_ref = 90
+dy_ref = 130
+
 class FaceDetector:
     """
     This class is used for detecting face.
@@ -250,10 +253,14 @@ class ProcessedImage:
         # self.x_middle_relative = (x_middle - x1) / (x2 - x1)
         # self.y_middle_relative = (y_middle - y1) / (y2 - y1)
 
-        self.x1, self.y1, self.x2, self.y2 = x1, y1, x2, y2
-
-        if not self.x1:
+        if not x1:
+            self.x1 = None
             return
+
+        dx_ratio = abs(x1 - x2) / dx_ref
+        dy_ratio = abs(y1 - y2) / dy_ref
+        self.x1, self.y1, self.x2, self.y2 = \
+            x1 / dx_ratio, y1 / dy_ratio, x2 / dx_ratio, y2 / dy_ratio
 
         self.xy_ratio = abs((x1 - x2) / (y1 - y2))
 

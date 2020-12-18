@@ -40,7 +40,6 @@ class HeadMovementTracker(object):
         self.prev_head_pose_hmm = 'stationary'
 
     def track_head_movement(self, frame):
-
         #get face bounding boxes from frame
         face_bb, data = self.face_d.detect_face_and_eyes_enhanced(frame, cv2.CascadeClassifier(self.eye_model))
 
